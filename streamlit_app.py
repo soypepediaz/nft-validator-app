@@ -1,6 +1,5 @@
 import streamlit as st
 import streamlit.components.v1 as components
-import json
 
 # Configuración de la página
 st.set_page_config(
@@ -69,16 +68,14 @@ with st.expander("ℹ️ Información del NFT Requerido"):
     st.write(f"**Requisito:** Poseer al menos 1 NFT de esta colección")
 
 # Estado de sesión
-if 'wallet_connected' not in st.session_state:
-    st.session_state.wallet_connected = False
-if 'wallet_address' not in st.session_state:
-    st.session_state.wallet_address = None
 if 'nft_verified' not in st.session_state:
     st.session_state.nft_verified = False
+if 'wallet_address' not in st.session_state:
+    st.session_state.wallet_address = None
 if 'nft_balance' not in st.session_state:
     st.session_state.nft_balance = 0
 
-# JavaScript para Web3 - VERSIÓN FULLSCREEN (sin iframe restrictions)
+# JavaScript mejorado con detección multi-wallet
 web3_component = f"""
 <!DOCTYPE html>
 <html>
@@ -96,8 +93,47 @@ web3_component = f"""
             background: transparent;
         }}
         .container {{
-            max-width: 600px;
+            max-width: 700px;
             margin: 0 auto;
+        }}
+        .wallet-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin: 20px 0;
+        }}
+        .wallet-button {{
+            background: white;
+            border: 2px solid #e0e0e0;
+            padding: 20px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+            font-size: 14px;
+            font-weight: 500;
+        }}
+        .wallet-button:hover {{
+            border-color: #667eea;
+            background: #f8f9ff;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+        }}
+        .wallet-button:active {{
+            transform: translateY(0);
+        }}
+        .wallet-button.disabled {{
+            opacity: 0.5;
+            cursor: not-allowed;
+        }}
+        .wallet-button.disabled:hover {{
+            transform: none;
+            border-color: #e0e0e0;
+            background: white;
+        }}
+        .wallet-icon {{
+            font-size: 32px;
+            margin-bottom: 8px;
         }}
         .button {{
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -116,9 +152,6 @@ web3_component = f"""
         .button:hover {{
             transform: translateY(-2px);
             box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
-        }}
-        .button:active {{
-            transform: translateY(0);
         }}
         .button:disabled {{
             background: #cccccc;
@@ -177,13 +210,25 @@ web3_component = f"""
             0% {{ transform: rotate(0deg); }}
             100% {{ transform: rotate(360deg); }}
         }}
+        .section-title {{
+            font-size: 18px;
+            font-weight: 600;
+            margin: 20px 0 10px 0;
+            color: #333;
+        }}
     </style>
 </head>
 <body>
     <div class="container">
         <div id="app">
-            <button id="connectBtn" class="button">🦊 Conectar con MetaMask</button>
+            <div id="walletSelector" style="display:none;">
+                <div class="section-title">🦊 Selecciona tu Wallet:</div>
+                <div class="wallet-grid" id="walletGrid"></div>
+            </div>
+            
+            <button id="detectBtn" class="button">🔍 Detectar Wallets Instaladas</button>
             <button id="verifyBtn" class="button" style="display:none;" disabled>🔍 Verificar Propiedad del NFT</button>
+            
             <div id="status"></div>
             <div id="walletInfo"></div>
         </div>
@@ -199,11 +244,25 @@ web3_component = f"""
         
         let web3;
         let userAddress;
+        let selectedProvider = null;
 
-        const connectBtn = document.getElementById('connectBtn');
+        const detectBtn = document.getElementById('detectBtn');
         const verifyBtn = document.getElementById('verifyBtn');
         const statusDiv = document.getElementById('status');
         const walletInfoDiv = document.getElementById('walletInfo');
+        const walletSelector = document.getElementById('walletSelector');
+        const walletGrid = document.getElementById('walletGrid');
+
+        // Configuración de wallets conocidas
+        const WALLETS = {{
+            'isMetaMask': {{ name: 'MetaMask', icon: '🦊', priority: 1 }},
+            'isRabby': {{ name: 'Rabby', icon: '🐰', priority: 2 }},
+            'isOkxWallet': {{ name: 'OKX Wallet', icon: '⭕', priority: 3 }},
+            'isPhantom': {{ name: 'Phantom', icon: '👻', priority: 4 }},
+            'isBraveWallet': {{ name: 'Brave Wallet', icon: '🦁', priority: 5 }},
+            'isCoinbaseWallet': {{ name: 'Coinbase', icon: '🔵', priority: 6 }},
+            'isTrust': {{ name: 'Trust Wallet', icon: '🛡️', priority: 7 }}
+        }};
 
         function showStatus(message, type) {{
             const spinner = type === 'info' ? '<span class="spinner"></span>' : '';
@@ -212,23 +271,127 @@ web3_component = f"""
             statusDiv.style.display = 'block';
         }}
 
-        function hideStatus() {{
-            statusDiv.style.display = 'none';
+        function getAvailableWallets() {{
+            const available = [];
+            
+            // Comprobar window.ethereum y sus proveedores
+            if (typeof window.ethereum !== 'undefined') {{
+                // Si hay múltiples proveedores (EIP-6963 o providers array)
+                if (window.ethereum.providers && Array.isArray(window.ethereum.providers)) {{
+                    window.ethereum.providers.forEach((provider, index) => {{
+                        for (const [key, wallet] of Object.entries(WALLETS)) {{
+                            if (provider[key]) {{
+                                available.push({{
+                                    provider: provider,
+                                    ...wallet,
+                                    index: index
+                                }});
+                                break;
+                            }}
+                        }}
+                    }});
+                }} else {{
+                    // Proveedor único, detectar cuál es
+                    for (const [key, wallet] of Object.entries(WALLETS)) {{
+                        if (window.ethereum[key]) {{
+                            available.push({{
+                                provider: window.ethereum,
+                                ...wallet,
+                                index: 0
+                            }});
+                            break;
+                        }}
+                    }}
+                    
+                    // Si no se detectó ninguna, usar como genérica
+                    if (available.length === 0) {{
+                        available.push({{
+                            provider: window.ethereum,
+                            name: 'Wallet Detectada',
+                            icon: '💼',
+                            priority: 99,
+                            index: 0
+                        }});
+                    }}
+                }}
+            }}
+            
+            // Comprobar wallets específicas en sus propios objetos
+            if (typeof window.rabby !== 'undefined') {{
+                available.push({{
+                    provider: window.rabby,
+                    name: 'Rabby',
+                    icon: '🐰',
+                    priority: 2,
+                    index: available.length
+                }});
+            }}
+            
+            if (typeof window.okxwallet !== 'undefined') {{
+                available.push({{
+                    provider: window.okxwallet,
+                    name: 'OKX Wallet',
+                    icon: '⭕',
+                    priority: 3,
+                    index: available.length
+                }});
+            }}
+
+            if (typeof window.phantom?.ethereum !== 'undefined') {{
+                available.push({{
+                    provider: window.phantom.ethereum,
+                    name: 'Phantom',
+                    icon: '👻',
+                    priority: 4,
+                    index: available.length
+                }});
+            }}
+            
+            return available.sort((a, b) => a.priority - b.priority);
         }}
 
-        // Detectar MetaMask al cargar
-        window.addEventListener('load', () => {{
-            if (typeof window.ethereum === 'undefined') {{
-                showStatus('⚠️ MetaMask no está instalado. Por favor, instala MetaMask para continuar.', 'error');
-                connectBtn.disabled = true;
+        detectBtn.addEventListener('click', () => {{
+            const wallets = getAvailableWallets();
+            
+            if (wallets.length === 0) {{
+                showStatus('⚠️ No se detectaron wallets. Por favor, instala MetaMask, Rabby u otra wallet compatible.', 'error');
+                return;
+            }}
+            
+            if (wallets.length === 1) {{
+                // Solo una wallet, conectar directamente
+                selectedProvider = wallets[0].provider;
+                showStatus(`✅ Detectada: ${{wallets[0].name}}. Conectando...`, 'info');
+                connectWallet();
             }} else {{
-                showStatus('✅ MetaMask detectado. Haz clic en "Conectar" para comenzar.', 'info');
+                // Múltiples wallets, mostrar selector
+                walletGrid.innerHTML = '';
+                wallets.forEach(wallet => {{
+                    const button = document.createElement('div');
+                    button.className = 'wallet-button';
+                    button.innerHTML = `
+                        <div class="wallet-icon">${{wallet.icon}}</div>
+                        <div>${{wallet.name}}</div>
+                    `;
+                    button.onclick = () => {{
+                        selectedProvider = wallet.provider;
+                        showStatus(`Conectando con ${{wallet.name}}...`, 'info');
+                        walletSelector.style.display = 'none';
+                        detectBtn.style.display = 'none';
+                        connectWallet();
+                    }};
+                    walletGrid.appendChild(button);
+                }});
+                
+                walletSelector.style.display = 'block';
+                detectBtn.style.display = 'none';
+                showStatus(`✅ Detectadas ${{wallets.length}} wallets. Selecciona una para continuar.`, 'success');
             }}
         }});
 
         async function switchToArbitrum() {{
             try {{
-                await window.ethereum.request({{
+                await selectedProvider.request({{
                     method: 'wallet_switchEthereumChain',
                     params: [{{ chainId: CHAIN_ID_HEX }}],
                 }});
@@ -236,7 +399,7 @@ web3_component = f"""
             }} catch (switchError) {{
                 if (switchError.code === 4902) {{
                     try {{
-                        await window.ethereum.request({{
+                        await selectedProvider.request({{
                             method: 'wallet_addEthereumChain',
                             params: [{{
                                 chainId: CHAIN_ID_HEX,
@@ -261,18 +424,11 @@ web3_component = f"""
             }}
         }}
 
-        connectBtn.addEventListener('click', async () => {{
-            if (typeof window.ethereum === 'undefined') {{
-                showStatus('⚠️ MetaMask no detectado. Por favor, instala MetaMask.', 'error');
-                return;
-            }}
-
+        async function connectWallet() {{
             try {{
-                connectBtn.disabled = true;
-                showStatus('🔄 Solicitando acceso a MetaMask...', 'info');
+                showStatus('🔄 Solicitando acceso a la wallet...', 'info');
                 
-                // Solicitar cuentas
-                const accounts = await window.ethereum.request({{ 
+                const accounts = await selectedProvider.request({{ 
                     method: 'eth_requestAccounts' 
                 }});
                 
@@ -283,28 +439,23 @@ web3_component = f"""
                 userAddress = accounts[0];
                 console.log('Cuenta conectada:', userAddress);
                 
-                // Cambiar a Arbitrum
                 showStatus('🔄 Cambiando a la red Arbitrum...', 'info');
                 const switched = await switchToArbitrum();
                 
                 if (!switched) {{
-                    showStatus('⚠️ No se pudo cambiar a Arbitrum. Por favor, cámbiala manualmente en MetaMask.', 'error');
-                    connectBtn.disabled = false;
+                    showStatus('⚠️ Por favor, cambia manualmente a Arbitrum en tu wallet.', 'error');
+                    detectBtn.style.display = 'block';
                     return;
                 }}
 
-                // Inicializar Web3
-                web3 = new Web3(window.ethereum);
+                web3 = new Web3(selectedProvider);
                 
-                // Mostrar información de wallet
                 walletInfoDiv.className = 'wallet-info';
                 walletInfoDiv.innerHTML = `
                     <div>✅ <strong>Wallet Conectada</strong></div>
                     <div class="wallet-address">${{userAddress}}</div>
                 `;
                 
-                // Ocultar botón de conectar y mostrar botón de verificar
-                connectBtn.style.display = 'none';
                 verifyBtn.style.display = 'block';
                 verifyBtn.disabled = false;
                 
@@ -313,52 +464,45 @@ web3_component = f"""
             }} catch (error) {{
                 console.error('Error de conexión:', error);
                 showStatus(`❌ Error: ${{error.message}}`, 'error');
-                connectBtn.disabled = false;
+                detectBtn.style.display = 'block';
+                walletSelector.style.display = 'none';
             }}
-        }});
+        }}
 
         verifyBtn.addEventListener('click', async () => {{
             try {{
                 verifyBtn.disabled = true;
-                showStatus('🔄 Preparando mensaje de verificación...', 'info');
+                showStatus('🔄 Preparando verificación...', 'info');
 
-                // Crear mensaje para firmar
                 const timestamp = Date.now();
                 const message = `Verificar propiedad de NFT\\n\\nWallet: ${{userAddress}}\\nContrato: ${{NFT_ADDRESS}}\\nRed: Arbitrum One\\nTimestamp: ${{timestamp}}\\n\\nEsta firma es gratuita y no autoriza transacciones.`;
 
-                // Solicitar firma
-                showStatus('✍️ Por favor, firma el mensaje en MetaMask...', 'info');
+                showStatus('✍️ Por favor, firma el mensaje en tu wallet...', 'info');
                 const signature = await web3.eth.personal.sign(message, userAddress);
-                console.log('Mensaje firmado:', signature);
+                console.log('Firmado:', signature);
 
-                // Verificar balance del NFT
-                showStatus('🔍 Consultando balance del NFT en Arbitrum...', 'info');
+                showStatus('🔍 Consultando balance del NFT...', 'info');
                 const arbitrumWeb3 = new Web3(ARBITRUM_RPC);
                 const contract = new arbitrumWeb3.eth.Contract(ERC721_ABI, NFT_ADDRESS);
                 
                 const balance = await contract.methods.balanceOf(userAddress).call();
-                console.log('Balance NFT:', balance);
-                
                 const balanceNum = parseInt(balance);
                 
                 if (balanceNum > 0) {{
-                    showStatus(`✅ ¡Verificación exitosa! Posees ${{balanceNum}} NFT(s) de esta colección.`, 'success');
+                    showStatus(`✅ ¡Verificación exitosa! Posees ${{balanceNum}} NFT(s).`, 'success');
                     
-                    // Notificar a Streamlit
                     window.parent.postMessage({{
                         type: 'streamlit:setComponentValue',
                         value: {{
                             success: true,
                             address: userAddress,
-                            balance: balanceNum,
-                            signature: signature
+                            balance: balanceNum
                         }}
                     }}, '*');
                     
                 }} else {{
-                    showStatus('❌ No posees ningún NFT de esta colección. El acceso está restringido a holders.', 'error');
+                    showStatus('❌ No posees ningún NFT de esta colección.', 'error');
                     
-                    // Notificar a Streamlit
                     window.parent.postMessage({{
                         type: 'streamlit:setComponentValue',
                         value: {{
@@ -370,13 +514,11 @@ web3_component = f"""
                 }}
 
             }} catch (error) {{
-                console.error('Error en verificación:', error);
+                console.error('Error:', error);
                 let errorMsg = error.message;
                 
-                if (error.code === 4001) {{
+                if (error.code === 4001 || errorMsg.includes('User denied')) {{
                     errorMsg = 'Firma cancelada por el usuario.';
-                }} else if (errorMsg.includes('User denied')) {{
-                    errorMsg = 'Firma rechazada. Por favor, acepta la firma en MetaMask.';
                 }}
                 
                 showStatus(`❌ Error: ${{errorMsg}}`, 'error');
@@ -385,34 +527,24 @@ web3_component = f"""
             }}
         }});
 
-        // Listeners para cambios en MetaMask
-        if (window.ethereum) {{
-            window.ethereum.on('accountsChanged', (accounts) => {{
-                if (accounts.length === 0) {{
-                    location.reload();
+        // Auto-detectar al cargar
+        window.addEventListener('load', () => {{
+            setTimeout(() => {{
+                const wallets = getAvailableWallets();
+                if (wallets.length > 0) {{
+                    showStatus(`💼 ${{wallets.length}} wallet(s) detectada(s). Haz clic en "Detectar Wallets" para continuar.`, 'info');
                 }} else {{
-                    userAddress = accounts[0];
-                    if (walletInfoDiv) {{
-                        walletInfoDiv.innerHTML = `
-                            <div>✅ <strong>Wallet Conectada</strong></div>
-                            <div class="wallet-address">${{userAddress}}</div>
-                        `;
-                    }}
-                    showStatus('🔄 Cuenta cambiada. Por favor, verifica nuevamente.', 'info');
+                    showStatus('⚠️ No se detectaron wallets. Instala MetaMask, Rabby u otra wallet compatible.', 'error');
                 }}
-            }});
-
-            window.ethereum.on('chainChanged', () => {{
-                location.reload();
-            }});
-        }}
+            }}, 500);
+        }});
     </script>
 </body>
 </html>
 """
 
 # Renderizar componente Web3
-verification_result = components.html(web3_component, height=500, scrolling=True)
+verification_result = components.html(web3_component, height=600, scrolling=True)
 
 # Procesar resultado
 if verification_result:
@@ -429,10 +561,10 @@ st.markdown("---")
 # Sección de contenido
 st.markdown("### 📄 Acceso al Contenido")
 
-# Botones de simulación para pruebas
+# Botones de simulación
 col1, col2 = st.columns(2)
 with col1:
-    if st.button("🔓 Simular Verificación (Prueba)", help="Solo para testing"):
+    if st.button("🔓 Simular Verificación (Prueba)"):
         st.session_state.nft_verified = True
         st.session_state.wallet_address = "0x1234...5678"
         st.session_state.nft_balance = 1
@@ -447,53 +579,48 @@ with col2:
 
 st.markdown("---")
 
-# Mostrar contenido según verificación
+# Mostrar contenido
 if st.session_state.nft_verified:
     st.markdown("""
     <div class="exclusive-content">
         <h2>🎉 ¡Contenido Exclusivo Desbloqueado!</h2>
         <p style="font-size: 1.1rem; margin-top: 1rem;">
-            Felicidades por ser parte de nuestra comunidad de NFT holders. 
-            Este es contenido exclusivo solo para miembros verificados.
+            Felicidades por ser parte de nuestra comunidad de NFT holders.
         </p>
         <hr style="border-color: rgba(255,255,255,0.3); margin: 1.5rem 0;">
         <h3>📚 Contenido Premium</h3>
         <ul style="font-size: 1rem; line-height: 1.8;">
             <li>✨ Acceso a materiales educativos exclusivos</li>
-            <li>🎪 Participación en eventos privados de la comunidad</li>
-            <li>🚀 Ventajas especiales en futuros lanzamientos</li>
-            <li>💬 Comunicación directa con el equipo fundador</li>
-            <li>🗳️ Votación en decisiones importantes del proyecto</li>
+            <li>🎪 Participación en eventos privados</li>
+            <li>🚀 Ventajas en futuros lanzamientos</li>
+            <li>💬 Comunicación directa con el equipo</li>
+            <li>🗳️ Votación en decisiones del proyecto</li>
         </ul>
-        <p style="margin-top: 1.5rem; font-style: italic; opacity: 0.9;">
-            💎 Gracias por tu apoyo y confianza en nuestro proyecto.
+        <p style="margin-top: 1.5rem; font-style: italic;">
+            💎 Gracias por tu apoyo.
         </p>
     </div>
     """, unsafe_allow_html=True)
     
     if st.session_state.wallet_address:
-        st.success(f"✅ Verificado con wallet: `{st.session_state.wallet_address}`")
-        st.info(f"🎫 NFTs en posesión: **{st.session_state.nft_balance}**")
+        st.success(f"✅ Verificado: `{st.session_state.wallet_address}`")
+        st.info(f"🎫 NFTs: **{st.session_state.nft_balance}**")
 
 else:
     st.markdown("""
     <div class="error-box">
         <h3>🔒 Contenido Exclusivo para Token Holders</h3>
         <p style="font-size: 1.1rem; margin-top: 1rem;">
-            Este contenido está reservado exclusivamente para los poseedores de NFTs 
-            de nuestra colección en la red Arbitrum.
+            Este contenido está reservado para poseedores de NFTs de nuestra colección.
         </p>
-        <p style="margin-top: 1rem;">
-            <strong>Para acceder necesitas:</strong>
-        </p>
-        <ul style="margin-top: 0.5rem; margin-left: 1.5rem;">
-            <li>Poseer al menos 1 NFT del contrato especificado</li>
-            <li>Tener MetaMask u otra wallet Web3 instalada</li>
-            <li>Conectar tu wallet usando el botón de arriba</li>
-            <li>Firmar un mensaje de verificación (sin coste de gas)</li>
+        <p style="margin-top: 1rem;"><strong>Para acceder necesitas:</strong></p>
+        <ul style="margin-left: 1.5rem;">
+            <li>Poseer al menos 1 NFT del contrato</li>
+            <li>Tener una wallet Web3 instalada</li>
+            <li>Conectar y firmar (sin coste)</li>
         </ul>
         <p style="margin-top: 1.5rem; font-weight: bold;">
-            👆 Usa el botón "Conectar con MetaMask" arriba para comenzar la verificación.
+            👆 Usa "Detectar Wallets" arriba para comenzar.
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -502,9 +629,7 @@ else:
 st.markdown("---")
 st.markdown("""
 <div style="text-align: center; color: #666; font-size: 0.9rem; padding: 1rem;">
-    <p>🔐 Verificación segura mediante firma offchain | Sin costes de gas</p>
-    <p style="font-size: 0.8rem; margin-top: 0.5rem;">
-        Powered by Web3.js & Streamlit | Arbitrum Network
-    </p>
+    <p>🔐 Verificación offchain | Sin costes | Multi-Wallet</p>
+    <p style="font-size: 0.8rem;">Soporta: MetaMask, Rabby, OKX, Phantom, Brave Wallet, Coinbase y más</p>
 </div>
 """, unsafe_allow_html=True)
