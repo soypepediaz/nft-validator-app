@@ -3,7 +3,7 @@ import streamlit.components.v1 as components
 
 # Configuración de la página
 st.set_page_config(
-    page_title="NFT Token Gated Content",
+    page_title="NFT Token Gated - Diagnóstico",
     page_icon="🔐",
     layout="centered"
 )
@@ -33,14 +33,6 @@ st.markdown("""
         border: 1px solid #f5c6cb;
         margin: 1rem 0;
     }
-    .info-box {
-        background-color: #d1ecf1;
-        color: #0c5460;
-        padding: 1.5rem;
-        border-radius: 10px;
-        border: 1px solid #bee5eb;
-        margin: 1rem 0;
-    }
     .success-box {
         background-color: #d4edda;
         color: #155724;
@@ -66,24 +58,14 @@ CHAIN_ID = 42161
 CHAIN_ID_HEX = "0xa4b1"
 
 # Título
-st.markdown('<h1 class="main-title">🔐 Contenido Exclusivo NFT</h1>', unsafe_allow_html=True)
+st.markdown('<h1 class="main-title">🔍 Diagnóstico de Wallet</h1>', unsafe_allow_html=True)
 
-st.markdown("""
-<div class="warning-box">
-    <strong>🐰 Wallet Requerida:</strong> Esta aplicación está configurada para funcionar <strong>SOLO con Rabby Wallet</strong>.
-    <br><br>
-    Si tienes otras wallets instaladas (MetaMask, OKX, Phantom, Brave Wallet), por favor <strong>desactívalas temporalmente</strong> 
-    en <code>brave://extensions/</code> o en la configuración de extensiones de tu navegador.
-</div>
-""", unsafe_allow_html=True)
+st.warning("**Modo Diagnóstico:** Esta versión mostrará información detallada sobre qué wallets detecta tu navegador.")
 
 # Información
-with st.expander("ℹ️ Información del NFT Requerido"):
+with st.expander("ℹ️ Información del NFT"):
     st.write(f"**Red:** Arbitrum One")
     st.write(f"**Contrato:** `{NFT_CONTRACT_ADDRESS}`")
-    st.write(f"**Chain ID:** {CHAIN_ID}")
-    st.write(f"**Requisito:** Poseer al menos 1 NFT de esta colección")
-    st.write(f"**Wallet:** Solo Rabby Wallet")
 
 # Estado de sesión
 if 'nft_verified' not in st.session_state:
@@ -93,8 +75,8 @@ if 'wallet_address' not in st.session_state:
 if 'nft_balance' not in st.session_state:
     st.session_state.nft_balance = 0
 
-# JavaScript específico para Rabby
-web3_component = f"""
+# Componente de diagnóstico detallado
+diagnostic_component = f"""
 <!DOCTYPE html>
 <html>
 <head>
@@ -106,66 +88,89 @@ web3_component = f"""
             box-sizing: border-box;
         }}
         body {{
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: 'Courier New', monospace;
             padding: 20px;
-            background: transparent;
+            background: #f8f9fa;
+            font-size: 13px;
         }}
-        .container {{
-            max-width: 700px;
-            margin: 0 auto;
+        .diagnostic-box {{
+            background: white;
+            border: 2px solid #007bff;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 15px 0;
+        }}
+        .diagnostic-title {{
+            font-size: 18px;
+            font-weight: bold;
+            color: #007bff;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #007bff;
+        }}
+        .check-item {{
+            padding: 8px;
+            margin: 5px 0;
+            background: #f8f9fa;
+            border-left: 4px solid #6c757d;
+            border-radius: 4px;
+        }}
+        .check-item.success {{
+            border-left-color: #28a745;
+            background: #d4edda;
+        }}
+        .check-item.error {{
+            border-left-color: #dc3545;
+            background: #f8d7da;
+        }}
+        .check-item.warning {{
+            border-left-color: #ffc107;
+            background: #fff3cd;
         }}
         .button {{
-            background: linear-gradient(135deg, #8697FF 0%, #7C5AFF 100%);
+            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
             color: white;
             border: none;
-            padding: 18px 35px;
-            font-size: 17px;
+            padding: 15px 30px;
+            font-size: 16px;
             font-weight: 600;
-            border-radius: 12px;
+            border-radius: 8px;
             cursor: pointer;
             width: 100%;
             margin: 10px 0;
             transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(134, 151, 255, 0.4);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
         }}
         .button:hover {{
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(134, 151, 255, 0.6);
-        }}
-        .button:active {{
-            transform: translateY(0);
+            box-shadow: 0 6px 20px rgba(0, 123, 255, 0.4);
         }}
         .button:disabled {{
-            background: #cccccc;
+            background: #6c757d;
             cursor: not-allowed;
             transform: none;
-            box-shadow: none;
         }}
-        .rabby-logo {{
-            width: 28px;
-            height: 28px;
-            background: white;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
+        .code-block {{
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 10px 0;
+            font-size: 12px;
+            line-height: 1.5;
+        }}
+        .wallet-info {{
+            background: linear-gradient(135deg, #8697FF15 0%, #7C5AFF15 100%);
+            padding: 18px;
+            border-radius: 10px;
+            margin: 15px 0;
+            border: 2px solid #8697FF;
         }}
         .status {{
             margin: 15px 0;
             padding: 18px;
             border-radius: 10px;
             font-size: 15px;
-            line-height: 1.7;
-        }}
-        .status-info {{
-            background-color: #d1ecf1;
-            color: #0c5460;
-            border: 2px solid #bee5eb;
         }}
         .status-success {{
             background-color: #d4edda;
@@ -177,69 +182,34 @@ web3_component = f"""
             color: #721c24;
             border: 2px solid #f5c6cb;
         }}
-        .status-warning {{
-            background-color: #fff3cd;
-            color: #856404;
-            border: 2px solid #ffeeba;
-        }}
-        .wallet-info {{
-            background: linear-gradient(135deg, #8697FF15 0%, #7C5AFF15 100%);
-            padding: 18px;
-            border-radius: 10px;
-            margin: 15px 0;
-            font-size: 14px;
-            border: 2px solid #8697FF;
-        }}
-        .wallet-address {{
-            font-family: 'Courier New', monospace;
-            font-weight: bold;
-            word-break: break-all;
-            margin-top: 8px;
-            font-size: 13px;
-        }}
         .spinner {{
             border: 3px solid #f3f3f3;
-            border-top: 3px solid #8697FF;
+            border-top: 3px solid #007bff;
             border-radius: 50%;
-            width: 22px;
-            height: 22px;
+            width: 20px;
+            height: 20px;
             animation: spin 1s linear infinite;
             display: inline-block;
             margin-right: 10px;
-            vertical-align: middle;
         }}
         @keyframes spin {{
             0% {{ transform: rotate(0deg); }}
             100% {{ transform: rotate(360deg); }}
         }}
-        .debug-info {{
-            background: #f5f5f5;
-            padding: 12px;
-            border-radius: 6px;
-            font-size: 12px;
-            font-family: monospace;
-            margin: 10px 0;
-            max-height: 150px;
-            overflow-y: auto;
-        }}
     </style>
 </head>
 <body>
-    <div class="container">
-        <div id="app">
-            <button id="connectBtn" class="button">
-                <span class="rabby-logo">🐰</span>
-                <span>Conectar con Rabby Wallet</span>
-            </button>
-            <button id="verifyBtn" class="button" style="display:none;" disabled>
-                <span>🔍 Verificar Propiedad del NFT</span>
-            </button>
-            
-            <div id="status"></div>
-            <div id="walletInfo"></div>
-            <div id="debug" class="debug-info" style="display:none;"></div>
-        </div>
+    <div class="diagnostic-box">
+        <div class="diagnostic-title">🔍 DIAGNÓSTICO DE WALLETS</div>
+        <div id="diagnosticOutput">Iniciando diagnóstico...</div>
     </div>
+
+    <button id="runDiagnostic" class="button">🔬 Ejecutar Diagnóstico Completo</button>
+    <button id="connectBtn" class="button" style="display:none;">🐰 Conectar con Rabby</button>
+    <button id="verifyBtn" class="button" style="display:none;" disabled>🔍 Verificar NFT</button>
+    
+    <div id="status"></div>
+    <div id="walletInfo"></div>
 
     <script>
         const NFT_ADDRESS = '{NFT_CONTRACT_ADDRESS}';
@@ -253,181 +223,233 @@ web3_component = f"""
         let userAddress;
         let rabbyProvider = null;
 
+        const diagnosticOutput = document.getElementById('diagnosticOutput');
+        const runDiagnostic = document.getElementById('runDiagnostic');
         const connectBtn = document.getElementById('connectBtn');
         const verifyBtn = document.getElementById('verifyBtn');
         const statusDiv = document.getElementById('status');
         const walletInfoDiv = document.getElementById('walletInfo');
-        const debugDiv = document.getElementById('debug');
 
         function showStatus(message, type) {{
-            const spinner = type === 'info' ? '<span class="spinner"></span>' : '';
             statusDiv.className = `status status-${{type}}`;
-            statusDiv.innerHTML = spinner + message;
+            statusDiv.innerHTML = message;
             statusDiv.style.display = 'block';
         }}
 
-        function addDebug(message) {{
-            const timestamp = new Date().toLocaleTimeString();
-            debugDiv.innerHTML += `[${{timestamp}}] ${{message}}<br>`;
-            debugDiv.style.display = 'block';
-            debugDiv.scrollTop = debugDiv.scrollHeight;
-            console.log(`[DEBUG] ${{message}}`);
+        function addDiagnosticItem(message, type) {{
+            const div = document.createElement('div');
+            div.className = `check-item ${{type}}`;
+            div.innerHTML = message;
+            diagnosticOutput.appendChild(div);
         }}
 
-        function detectRabby() {{
-            addDebug('Iniciando detección de Rabby...');
+        function addCodeBlock(title, code) {{
+            const div = document.createElement('div');
+            div.innerHTML = `<strong style="display:block;margin:10px 0 5px 0;">${{title}}:</strong><div class="code-block">${{code}}</div>`;
+            diagnosticOutput.appendChild(div);
+        }}
+
+        function runFullDiagnostic() {{
+            diagnosticOutput.innerHTML = '';
+            addDiagnosticItem('🔄 Iniciando diagnóstico completo...', 'warning');
             
-            // Método 1: Objeto window.rabby directo
-            if (typeof window.rabby !== 'undefined') {{
-                addDebug('✅ Rabby detectada en window.rabby');
-                return window.rabby;
-            }}
-            
-            // Método 2: window.ethereum con flag isRabby
+            // 1. Verificar window.ethereum
             if (typeof window.ethereum !== 'undefined') {{
-                addDebug('window.ethereum existe, verificando...');
+                addDiagnosticItem('✅ window.ethereum existe', 'success');
                 
-                if (window.ethereum.isRabby) {{
-                    addDebug('✅ Rabby detectada en window.ethereum.isRabby');
-                    return window.ethereum;
+                // Inspeccionar propiedades de window.ethereum
+                const ethereumProps = [];
+                for (let prop in window.ethereum) {{
+                    if (prop.toLowerCase().includes('rabbit') || 
+                        prop.toLowerCase().includes('rabby') ||
+                        prop === 'isRabby' || 
+                        prop === 'isMetaMask' ||
+                        prop === 'isBraveWallet' ||
+                        prop === 'isOkxWallet' ||
+                        prop === 'isPhantom' ||
+                        prop === 'isCoinbaseWallet') {{
+                        ethereumProps.push(`  ${{prop}}: ${{window.ethereum[prop]}}`);
+                    }}
                 }}
                 
-                // Método 3: Array de proveedores
+                if (ethereumProps.length > 0) {{
+                    addCodeBlock('Propiedades de window.ethereum', ethereumProps.join('\\n'));
+                }} else {{
+                    addDiagnosticItem('⚠️ No se encontraron flags de wallet conocidas en window.ethereum', 'warning');
+                }}
+                
+                // Verificar providers array
                 if (window.ethereum.providers && Array.isArray(window.ethereum.providers)) {{
-                    addDebug(`Detectados ${{window.ethereum.providers.length}} proveedores`);
-                    for (let i = 0; i < window.ethereum.providers.length; i++) {{
-                        const provider = window.ethereum.providers[i];
-                        addDebug(`Proveedor ${{i}}: isRabby=${{provider.isRabby}}`);
+                    addDiagnosticItem(`✅ window.ethereum.providers existe [${{window.ethereum.providers.length}} proveedor(es)]`, 'success');
+                    
+                    window.ethereum.providers.forEach((provider, index) => {{
+                        const providerInfo = [];
+                        providerInfo.push(`Proveedor [${{index}}]:`);
+                        
+                        if (provider.isRabby) providerInfo.push('  ✅ isRabby: true');
+                        if (provider.isMetaMask) providerInfo.push('  ⚠️ isMetaMask: true');
+                        if (provider.isBraveWallet) providerInfo.push('  ⚠️ isBraveWallet: true');
+                        if (provider.isOkxWallet) providerInfo.push('  ⚠️ isOkxWallet: true');
+                        if (provider.isPhantom) providerInfo.push('  ⚠️ isPhantom: true');
+                        
+                        addCodeBlock(``, providerInfo.join('\\n'));
+                    }});
+                }} else {{
+                    addDiagnosticItem('❌ window.ethereum.providers NO existe o no es array', 'error');
+                }}
+                
+            }} else {{
+                addDiagnosticItem('❌ window.ethereum NO existe', 'error');
+            }}
+            
+            // 2. Verificar window.rabby directo
+            if (typeof window.rabby !== 'undefined') {{
+                addDiagnosticItem('✅ window.rabby existe (MÉTODO PREFERIDO)', 'success');
+                rabbyProvider = window.rabby;
+            }} else {{
+                addDiagnosticItem('❌ window.rabby NO existe', 'error');
+            }}
+            
+            // 3. Verificar objetos alternativos
+            const alternativeObjects = ['okxwallet', 'phantom', 'coinbaseWalletExtension', 'trustwallet'];
+            let foundAlternatives = [];
+            alternativeObjects.forEach(obj => {{
+                if (typeof window[obj] !== 'undefined') {{
+                    foundAlternatives.push(obj);
+                }}
+            }});
+            
+            if (foundAlternatives.length > 0) {{
+                addDiagnosticItem(`⚠️ Otras wallets detectadas: ${{foundAlternatives.join(', ')}}`, 'warning');
+                addCodeBlock('RECOMENDACIÓN', 'Desactiva estas wallets en brave://extensions/ para evitar conflictos');
+            }}
+            
+            // 4. Detectar Rabby específicamente
+            let rabbyFound = false;
+            let rabbyMethod = '';
+            
+            if (typeof window.rabby !== 'undefined') {{
+                rabbyProvider = window.rabby;
+                rabbyFound = true;
+                rabbyMethod = 'window.rabby';
+            }} else if (typeof window.ethereum !== 'undefined') {{
+                if (window.ethereum.isRabby) {{
+                    rabbyProvider = window.ethereum;
+                    rabbyFound = true;
+                    rabbyMethod = 'window.ethereum.isRabby';
+                }} else if (window.ethereum.providers) {{
+                    for (let provider of window.ethereum.providers) {{
                         if (provider.isRabby) {{
-                            addDebug('✅ Rabby encontrada en array de proveedores');
-                            return provider;
+                            rabbyProvider = provider;
+                            rabbyFound = true;
+                            rabbyMethod = 'window.ethereum.providers[i].isRabby';
+                            break;
                         }}
                     }}
                 }}
             }}
             
-            addDebug('❌ Rabby no detectada');
-            return null;
-        }}
-
-        // Detectar Rabby al cargar
-        window.addEventListener('load', () => {{
-            setTimeout(() => {{
-                rabbyProvider = detectRabby();
-                
-                if (rabbyProvider) {{
-                    showStatus('✅ Rabby Wallet detectada. Haz clic en "Conectar" para continuar.', 'success');
-                }} else {{
-                    showStatus('⚠️ <strong>Rabby Wallet no detectada.</strong><br><br>Por favor:<br>1. Instala Rabby desde <a href="https://rabby.io" target="_blank">rabby.io</a><br>2. Desactiva otras wallets en brave://extensions/<br>3. Refresca esta página', 'error');
-                    connectBtn.disabled = true;
-                }}
-            }}, 800);
-        }});
-
-        async function switchToArbitrum() {{
-            try {{
-                addDebug('Intentando cambiar a Arbitrum...');
-                await rabbyProvider.request({{
-                    method: 'wallet_switchEthereumChain',
-                    params: [{{ chainId: CHAIN_ID_HEX }}],
-                }});
-                addDebug('✅ Cambiado a Arbitrum');
-                return true;
-            }} catch (switchError) {{
-                addDebug(`Error al cambiar: ${{switchError.code}} - ${{switchError.message}}`);
-                
-                if (switchError.code === 4902) {{
-                    try {{
-                        addDebug('Red no encontrada, agregando...');
-                        await rabbyProvider.request({{
-                            method: 'wallet_addEthereumChain',
-                            params: [{{
-                                chainId: CHAIN_ID_HEX,
-                                chainName: 'Arbitrum One',
-                                nativeCurrency: {{ 
-                                    name: 'Ethereum', 
-                                    symbol: 'ETH', 
-                                    decimals: 18 
-                                }},
-                                rpcUrls: ['https://arb1.arbitrum.io/rpc'],
-                                blockExplorerUrls: ['https://arbiscan.io/']
-                            }}]
-                        }});
-                        addDebug('✅ Red Arbitrum agregada');
-                        return true;
-                    }} catch (addError) {{
-                        addDebug(`❌ Error al agregar red: ${{addError.message}}`);
-                        return false;
-                    }}
-                }}
-                return false;
+            // 5. Resultado final
+            addDiagnosticItem('═══════════════════════════════════════', '');
+            
+            if (rabbyFound) {{
+                addDiagnosticItem(`✅ RABBY DETECTADA mediante: ${{rabbyMethod}}`, 'success');
+                addDiagnosticItem('✅ Puedes continuar con la conexión', 'success');
+                connectBtn.style.display = 'block';
+                runDiagnostic.style.display = 'none';
+            }} else {{
+                addDiagnosticItem('❌ RABBY NO DETECTADA', 'error');
+                addCodeBlock('POSIBLES CAUSAS', 
+                    '1. Rabby no está instalada\\n' +
+                    '2. Rabby está desactivada en brave://extensions/\\n' +
+                    '3. Otra wallet está sobrescribiendo window.ethereum\\n' +
+                    '4. Necesitas refrescar la página después de instalar Rabby'
+                );
+                addCodeBlock('SOLUCIÓN', 
+                    '1. Ve a brave://extensions/\\n' +
+                    '2. Verifica que Rabby esté activada (toggle azul)\\n' +
+                    '3. DESACTIVA todas las otras wallets\\n' +
+                    '4. Refresca esta página (F5)\\n' +
+                    '5. Ejecuta el diagnóstico nuevamente'
+                );
             }}
+            
+            // 6. Información del navegador
+            addDiagnosticItem('═══════════════════════════════════════', '');
+            addCodeBlock('Información del Navegador',
+                `User Agent: ${{navigator.userAgent}}\\n` +
+                `Plataforma: ${{navigator.platform}}\\n` +
+                `Idioma: ${{navigator.language}}`
+            );
         }}
+
+        runDiagnostic.addEventListener('click', runFullDiagnostic);
+
+        // Ejecutar diagnóstico automáticamente al cargar
+        window.addEventListener('load', () => {{
+            setTimeout(runFullDiagnostic, 500);
+        }});
 
         connectBtn.addEventListener('click', async () => {{
             if (!rabbyProvider) {{
-                rabbyProvider = detectRabby();
-                if (!rabbyProvider) {{
-                    showStatus('⚠️ Rabby Wallet no encontrada. Por favor, instálala y refresca la página.', 'error');
-                    return;
-                }}
+                showStatus('❌ Error: Rabby provider no disponible', 'error');
+                return;
             }}
 
             try {{
                 connectBtn.disabled = true;
-                addDebug('Solicitando cuentas a Rabby...');
-                showStatus('🔄 Abriendo Rabby Wallet... Por favor, autoriza la conexión.', 'info');
+                showStatus('🔄 Conectando con Rabby...', 'info');
                 
                 const accounts = await rabbyProvider.request({{ 
                     method: 'eth_requestAccounts' 
                 }});
                 
                 if (!accounts || accounts.length === 0) {{
-                    throw new Error('No se obtuvieron cuentas de Rabby');
+                    throw new Error('No se obtuvieron cuentas');
                 }}
                 
                 userAddress = accounts[0];
-                addDebug(`✅ Cuenta obtenida: ${{userAddress}}`);
                 
-                showStatus('🔄 Cambiando a la red Arbitrum en Rabby...', 'info');
-                const switched = await switchToArbitrum();
+                showStatus('🔄 Cambiando a Arbitrum...', 'info');
                 
-                if (!switched) {{
-                    showStatus('⚠️ No se pudo cambiar a Arbitrum. Por favor, cámbiala manualmente en Rabby.', 'warning');
-                    connectBtn.disabled = false;
-                    return;
+                try {{
+                    await rabbyProvider.request({{
+                        method: 'wallet_switchEthereumChain',
+                        params: [{{ chainId: CHAIN_ID_HEX }}],
+                    }});
+                }} catch (switchError) {{
+                    if (switchError.code === 4902) {{
+                        await rabbyProvider.request({{
+                            method: 'wallet_addEthereumChain',
+                            params: [{{
+                                chainId: CHAIN_ID_HEX,
+                                chainName: 'Arbitrum One',
+                                nativeCurrency: {{ name: 'Ethereum', symbol: 'ETH', decimals: 18 }},
+                                rpcUrls: ['https://arb1.arbitrum.io/rpc'],
+                                blockExplorerUrls: ['https://arbiscan.io/']
+                            }}]
+                        }});
+                    }} else {{
+                        throw switchError;
+                    }}
                 }}
 
                 web3 = new Web3(rabbyProvider);
-                addDebug('✅ Web3 inicializado con Rabby');
                 
                 walletInfoDiv.className = 'wallet-info';
                 walletInfoDiv.innerHTML = `
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <span style="font-size: 24px;">🐰</span>
-                        <div>
-                            <strong>Rabby Wallet Conectada</strong>
-                            <div class="wallet-address">${{userAddress}}</div>
-                        </div>
-                    </div>
+                    <div><strong>🐰 Rabby Conectada</strong></div>
+                    <div style="font-family: monospace; margin-top: 5px;">${{userAddress}}</div>
                 `;
                 
                 connectBtn.style.display = 'none';
                 verifyBtn.style.display = 'block';
                 verifyBtn.disabled = false;
-                
-                showStatus('✅ Conexión exitosa con Rabby. Ahora puedes verificar tu NFT.', 'success');
+                showStatus('✅ Conexión exitosa', 'success');
                 
             }} catch (error) {{
-                addDebug(`❌ Error de conexión: ${{error.message}}`);
-                console.error('Error completo:', error);
-                
-                let errorMsg = error.message;
-                if (error.code === 4001 || errorMsg.includes('User rejected')) {{
-                    errorMsg = 'Conexión rechazada por el usuario en Rabby.';
-                }}
-                
-                showStatus(`❌ Error: ${{errorMsg}}`, 'error');
+                console.error('Error:', error);
+                showStatus(`❌ Error: ${{error.message}}`, 'error');
                 connectBtn.disabled = false;
             }}
         }});
@@ -435,115 +457,42 @@ web3_component = f"""
         verifyBtn.addEventListener('click', async () => {{
             try {{
                 verifyBtn.disabled = true;
-                addDebug('Iniciando verificación de NFT...');
-                showStatus('🔄 Preparando mensaje de verificación...', 'info');
+                showStatus('🔄 Verificando NFT...', 'info');
 
-                const timestamp = Date.now();
-                const message = `Verificar propiedad de NFT
-
-Wallet: ${{userAddress}}
-Contrato: ${{NFT_ADDRESS}}
-Red: Arbitrum One
-Timestamp: ${{timestamp}}
-
-Esta firma es gratuita y no autoriza ninguna transacción.`;
-
-                addDebug('Solicitando firma a Rabby...');
-                showStatus('✍️ Por favor, firma el mensaje en Rabby Wallet...', 'info');
-                
+                const message = `Verificar NFT\\nWallet: ${{userAddress}}\\nContrato: ${{NFT_ADDRESS}}\\nTimestamp: ${{Date.now()}}`;
                 const signature = await web3.eth.personal.sign(message, userAddress);
-                addDebug(`✅ Mensaje firmado: ${{signature.substring(0, 20)}}...`);
 
-                showStatus('🔍 Consultando balance del NFT en Arbitrum...', 'info');
-                addDebug('Conectando a RPC de Arbitrum...');
-                
                 const arbitrumWeb3 = new Web3(ARBITRUM_RPC);
                 const contract = new arbitrumWeb3.eth.Contract(ERC721_ABI, NFT_ADDRESS);
-                
-                addDebug('Llamando a balanceOf...');
                 const balance = await contract.methods.balanceOf(userAddress).call();
                 const balanceNum = parseInt(balance);
-                addDebug(`Balance obtenido: ${{balanceNum}}`);
                 
                 if (balanceNum > 0) {{
-                    showStatus(`✅ ¡Verificación exitosa! Posees ${{balanceNum}} NFT(s) de esta colección.`, 'success');
-                    
+                    showStatus(`✅ Verificado! Tienes ${{balanceNum}} NFT(s)`, 'success');
                     window.parent.postMessage({{
                         type: 'streamlit:setComponentValue',
-                        value: {{
-                            success: true,
-                            address: userAddress,
-                            balance: balanceNum,
-                            signature: signature
-                        }}
+                        value: {{ success: true, address: userAddress, balance: balanceNum }}
                     }}, '*');
-                    
                 }} else {{
-                    showStatus('❌ No posees ningún NFT de esta colección. El acceso está restringido a holders.', 'error');
-                    
+                    showStatus('❌ No posees este NFT', 'error');
                     window.parent.postMessage({{
                         type: 'streamlit:setComponentValue',
-                        value: {{
-                            success: false,
-                            address: userAddress,
-                            balance: 0
-                        }}
+                        value: {{ success: false, address: userAddress, balance: 0 }}
                     }}, '*');
                 }}
-
             }} catch (error) {{
-                addDebug(`❌ Error en verificación: ${{error.message}}`);
-                console.error('Error completo:', error);
-                
-                let errorMsg = error.message;
-                
-                if (error.code === 4001 || errorMsg.includes('User denied') || errorMsg.includes('User rejected')) {{
-                    errorMsg = 'Firma cancelada por el usuario en Rabby.';
-                }} else if (errorMsg.includes('execution reverted')) {{
-                    errorMsg = 'Error al consultar el contrato. Verifica que la dirección del NFT sea correcta.';
-                }}
-                
-                showStatus(`❌ Error: ${{errorMsg}}`, 'error');
+                showStatus(`❌ Error: ${{error.message}}`, 'error');
             }} finally {{
                 verifyBtn.disabled = false;
             }}
         }});
-
-        // Listeners para cambios en Rabby
-        if (rabbyProvider) {{
-            rabbyProvider.on('accountsChanged', (accounts) => {{
-                addDebug('Cuenta cambiada en Rabby');
-                if (accounts.length === 0) {{
-                    location.reload();
-                }} else {{
-                    userAddress = accounts[0];
-                    if (walletInfoDiv) {{
-                        walletInfoDiv.innerHTML = `
-                            <div style="display: flex; align-items: center; gap: 10px;">
-                                <span style="font-size: 24px;">🐰</span>
-                                <div>
-                                    <strong>Rabby Wallet Conectada</strong>
-                                    <div class="wallet-address">${{userAddress}}</div>
-                                </div>
-                            </div>
-                        `;
-                    }}
-                    showStatus('🔄 Cuenta cambiada. Por favor, verifica nuevamente.', 'info');
-                }}
-            }});
-
-            rabbyProvider.on('chainChanged', (chainId) => {{
-                addDebug(`Red cambiada: ${{chainId}}`);
-                location.reload();
-            }});
-        }}
     </script>
 </body>
 </html>
 """
 
-# Renderizar componente Web3
-verification_result = components.html(web3_component, height=650, scrolling=True)
+# Renderizar componente
+verification_result = components.html(diagnostic_component, height=800, scrolling=True)
 
 # Procesar resultado
 if verification_result:
@@ -557,78 +506,25 @@ if verification_result:
 
 st.markdown("---")
 
-# Sección de contenido
-st.markdown("### 📄 Acceso al Contenido")
-
-# Botones de simulación
-col1, col2 = st.columns(2)
-with col1:
-    if st.button("🔓 Simular Verificación (Prueba)"):
-        st.session_state.nft_verified = True
-        st.session_state.wallet_address = "0x1234...5678"
-        st.session_state.nft_balance = 1
-        st.rerun()
-
-with col2:
-    if st.button("🔒 Resetear"):
-        st.session_state.nft_verified = False
-        st.session_state.wallet_address = None
-        st.session_state.nft_balance = 0
-        st.rerun()
-
-st.markdown("---")
-
 # Mostrar contenido
 if st.session_state.nft_verified:
     st.markdown("""
     <div class="exclusive-content">
         <h2>🎉 ¡Contenido Exclusivo Desbloqueado!</h2>
-        <p style="font-size: 1.1rem; margin-top: 1rem;">
-            Felicidades por ser parte de nuestra comunidad de NFT holders.
-        </p>
-        <hr style="border-color: rgba(255,255,255,0.3); margin: 1.5rem 0;">
-        <h3>📚 Contenido Premium</h3>
-        <ul style="font-size: 1rem; line-height: 1.8;">
-            <li>✨ Acceso a materiales educativos exclusivos</li>
-            <li>🎪 Participación en eventos privados</li>
-            <li>🚀 Ventajas en futuros lanzamientos</li>
-            <li>💬 Comunicación directa con el equipo</li>
-            <li>🗳️ Votación en decisiones del proyecto</li>
-        </ul>
-        <p style="margin-top: 1.5rem; font-style: italic;">
-            💎 Gracias por tu apoyo.
-        </p>
+        <p>Felicidades por ser parte de nuestra comunidad de NFT holders.</p>
     </div>
     """, unsafe_allow_html=True)
     
     if st.session_state.wallet_address:
-        st.success(f"✅ Verificado con Rabby: `{st.session_state.wallet_address}`")
-        st.info(f"🎫 NFTs en posesión: **{st.session_state.nft_balance}**")
-
+        st.success(f"✅ Verificado: `{st.session_state.wallet_address}`")
+        st.info(f"🎫 NFTs: **{st.session_state.nft_balance}**")
 else:
     st.markdown("""
     <div class="error-box">
         <h3>🔒 Contenido Exclusivo para Token Holders</h3>
-        <p style="font-size: 1.1rem; margin-top: 1rem;">
-            Este contenido está reservado para poseedores de NFTs de nuestra colección.
-        </p>
-        <p style="margin-top: 1rem;"><strong>Para acceder necesitas:</strong></p>
-        <ul style="margin-left: 1.5rem;">
-            <li>Poseer al menos 1 NFT del contrato especificado</li>
-            <li>Tener Rabby Wallet instalada</li>
-            <li>Conectar y firmar con Rabby (sin coste)</li>
-        </ul>
-        <p style="margin-top: 1.5rem; font-weight: bold;">
-            👆 Usa "Conectar con Rabby Wallet" arriba para comenzar.
-        </p>
+        <p>Primero ejecuta el diagnóstico para verificar la detección de Rabby.</p>
     </div>
     """, unsafe_allow_html=True)
 
-# Footer
 st.markdown("---")
-st.markdown("""
-<div style="text-align: center; color: #666; font-size: 0.9rem; padding: 1rem;">
-    <p>🔐 Verificación offchain con Rabby Wallet | Sin costes de gas</p>
-    <p style="font-size: 0.8rem;">Optimizado exclusivamente para Rabby | Arbitrum Network</p>
-</div>
-""", unsafe_allow_html=True)
+st.info("💡 **Tip:** Este modo diagnóstico te mostrará exactamente qué wallets detecta tu navegador y por qué Rabby no está siendo reconocida.")
